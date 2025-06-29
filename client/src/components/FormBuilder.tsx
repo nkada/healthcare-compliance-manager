@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Plus, FileText, Edit, Trash2, GripVertical, X } from 'lucide-react';
+import { Plus, FileText, Edit, Trash2, GripVertical, X, BarChart3 } from 'lucide-react';
 import { trpc } from '@/utils/trpc';
+import { FormSubmissionsViewer } from './FormSubmissionsViewer';
 import type { Form, CreateFormInput, UpdateFormInput } from '../../../server/src/schema';
 
 interface FormBuilderProps {
@@ -33,6 +34,8 @@ export function FormBuilder({ forms, onRefresh }: FormBuilderProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedForm, setSelectedForm] = useState<Form | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmissionsDialogOpen, setIsSubmissionsDialogOpen] = useState(false);
+  const [selectedFormForSubmissions, setSelectedFormForSubmissions] = useState<Form | null>(null);
 
   const [formData, setFormData] = useState<{
     title: string;
@@ -477,6 +480,17 @@ export function FormBuilder({ forms, onRefresh }: FormBuilderProps) {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => {
+                        setSelectedFormForSubmissions(form);
+                        setIsSubmissionsDialogOpen(true);
+                      }}
+                    >
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      View Submissions
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openEditDialog(form)}
                     >
                       <Edit className="h-4 w-4" />
@@ -564,6 +578,27 @@ export function FormBuilder({ forms, onRefresh }: FormBuilderProps) {
                 </Button>
               </DialogFooter>
             </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Form Submissions Viewer Dialog */}
+      <Dialog open={isSubmissionsDialogOpen} onOpenChange={setIsSubmissionsDialogOpen}>
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Form Submissions</DialogTitle>
+            <DialogDescription>
+              View all submissions for the selected form
+            </DialogDescription>
+          </DialogHeader>
+          {selectedFormForSubmissions && (
+            <FormSubmissionsViewer
+              formId={selectedFormForSubmissions.id}
+              onClose={() => {
+                setIsSubmissionsDialogOpen(false);
+                setSelectedFormForSubmissions(null);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>

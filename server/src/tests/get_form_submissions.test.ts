@@ -4,6 +4,7 @@ import { resetDB, createDB } from '../helpers';
 import { db } from '../db';
 import { usersTable, formsTable, formSubmissionsTable } from '../db/schema';
 import { getFormSubmissions } from '../handlers/get_form_submissions';
+import type { FormSubmissionWithDetails } from '../schema';
 
 // Test data
 const testUser = {
@@ -17,7 +18,7 @@ const testUser = {
 const testForm = {
   title: 'Test Form',
   description: 'A test form',
-  tags: null,
+  tags: JSON.stringify(['test', 'form']),
   created_by: 1
 };
 
@@ -73,9 +74,22 @@ describe('getFormSubmissions', () => {
     expect(result).toHaveLength(3);
     expect(result[0].form_id).toEqual(form1.id);
     expect(result[0].submitted_by).toEqual(user.id);
-    expect(result[0].submission_data).toEqual(JSON.stringify({ field1: 'value1', field2: 'value2' }));
+    expect(result[0].submission_data).toEqual({ field1: 'value1', field2: 'value2' }); // Now parsed
     expect(result[0].id).toBeDefined();
     expect(result[0].submitted_at).toBeInstanceOf(Date);
+    
+    // Verify submittedByUser is populated
+    expect(result[0].submittedByUser).toBeDefined();
+    expect(result[0].submittedByUser.id).toEqual(user.id);
+    expect(result[0].submittedByUser.first_name).toEqual('Test');
+    expect(result[0].submittedByUser.last_name).toEqual('User');
+    expect(result[0].submittedByUser.email).toEqual('test@example.com');
+    
+    // Verify formDetails is populated
+    expect(result[0].formDetails).toBeDefined();
+    expect(result[0].formDetails.id).toEqual(form1.id);
+    expect(result[0].formDetails.title).toEqual('Test Form');
+    expect(result[0].formDetails.tags).toEqual(['test', 'form']); // Now parsed array
   });
 
   it('should return submissions for specific form when form_id is provided', async () => {
@@ -103,11 +117,14 @@ describe('getFormSubmissions', () => {
     const result = await getFormSubmissions(form1.id);
 
     expect(result).toHaveLength(2);
-    result.forEach(submission => {
+    result.forEach((submission: FormSubmissionWithDetails) => {
       expect(submission.form_id).toEqual(form1.id);
       expect(submission.submitted_by).toEqual(user.id);
       expect(submission.id).toBeDefined();
       expect(submission.submitted_at).toBeInstanceOf(Date);
+      expect(submission.submittedByUser).toBeDefined();
+      expect(submission.formDetails).toBeDefined();
+      expect(typeof submission.submission_data).toBe('object'); // Parsed from JSON
     });
   });
 
@@ -155,5 +172,62 @@ describe('getFormSubmissions', () => {
     expect(result).toHaveLength(1);
     expect(result[0].task_id).toEqual(123);
     expect(result[0].form_id).toEqual(form.id);
+    expect(result[0].submittedByUser).toBeDefined();
+    expect(result[0].formDetails).toBeDefined();
+    expect(typeof result[0].submission_data).toBe('object'); // Parsed from JSON
+  });
+
+  it('should order results by submitted_at in descending order', async () => {
+    // Create prerequisite data
+    const [user] = await db.insert(usersTable).values(testUser).returning().execute();
+    
+    const [form] = await db.insert(formsTable).values({
+      ...testForm,
+      created_by: user.id
+    }).returning().execute();
+    
+    // Create multiple submissions with different timestamps
+    const submission1 = await db.insert(formSubmissionsTable).values({
+      ...testSubmission1,
+      form_id: form.id,
+      submitted_by: user.id
+    }).returning().execute();
+    
+    // Wait a moment to ensure different timestamps
+    await new Promise(resolve => setTimeout(resolve, 1));
+    
+    const submission2 = await db.insert(formSubmissionsTable).values({
+      ...testSubmission2,
+      form_id: form.id,
+      submitted_by: user.id
+    }).returning().execute();
+
+    const result = await getFormSubmissions(form.id);
+
+    expect(result).toHaveLength(2);
+    // Most recent should be first
+    expect(result[0].submitted_at.getTime()).toBeGreaterThanOrEqual(result[1].submitted_at.getTime());
+  });
+
+  it('should handle forms with null tags', async () => {
+    // Create prerequisite data
+    const [user] = await db.insert(usersTable).values(testUser).returning().execute();
+    
+    const [form] = await db.insert(formsTable).values({
+      ...testForm,
+      tags: null, // Test null tags
+      created_by: user.id
+    }).returning().execute();
+    
+    await db.insert(formSubmissionsTable).values({
+      ...testSubmission1,
+      form_id: form.id,
+      submitted_by: user.id
+    }).execute();
+
+    const result = await getFormSubmissions(form.id);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].formDetails.tags).toEqual([]); // Should be empty array
   });
 });

@@ -145,6 +145,28 @@ export const formSubmissionSchema = z.object({
 
 export type FormSubmission = z.infer<typeof formSubmissionSchema>;
 
+export const formSubmissionWithDetailsSchema = z.object({
+  id: z.number(),
+  form_id: z.number(),
+  task_id: z.number().nullable(),
+  submitted_by: z.number(),
+  submission_data: z.record(z.string(), z.any()), // Parsed JSON object
+  submitted_at: z.coerce.date(),
+  submittedByUser: userSchema,
+  formDetails: z.object({
+    id: z.number(),
+    title: z.string(),
+    description: z.string().nullable(),
+    tags: z.array(z.string()), // Parsed array
+    is_active: z.boolean(),
+    created_by: z.number(),
+    created_at: z.coerce.date(),
+    updated_at: z.coerce.date()
+  })
+});
+
+export type FormSubmissionWithDetails = z.infer<typeof formSubmissionWithDetailsSchema>;
+
 export const createFormSubmissionInputSchema = z.object({
   form_id: z.number(),
   task_id: z.number().nullable(),
