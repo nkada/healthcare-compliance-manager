@@ -1,23 +1,74 @@
 
+import { db } from '../db';
+import { tasksTable } from '../db/schema';
 import { type UpdateTaskStatusInput, type Task } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateTaskStatus(input: UpdateTaskStatusInput): Promise<Task> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating task status in the database.
-    // Should validate task exists and handle recurring task creation if completed.
-    // Should create next recurring task if recurrence_type is not 'none'.
-    return Promise.resolve({
-        id: input.id,
-        form_id: 1, // Placeholder
-        assigned_to: 1, // Placeholder
-        assigned_by: 1, // Placeholder
-        title: 'Placeholder Task',
-        due_date: new Date(),
+export const updateTaskStatus = async (input: UpdateTaskStatusInput): Promise<Task> => {
+  try {
+    // First, get the current task to check if it exists and get recurrence info
+    const existingTasks = await db.select()
+      .from(tasksTable)
+      .where(eq(tasksTable.id, input.id))
+      .execute();
+
+    if (existingTasks.length === 0) {
+      throw new Error(`Task with id ${input.id} not found`);
+    }
+
+    const existingTask = existingTasks[0];
+
+    // Update the task status and updated_at timestamp
+    const updatedTasks = await db.update(tasksTable)
+      .set({
         status: input.status,
-        recurrence_type: 'none',
-        recurrence_interval: null,
-        next_due_date: null,
-        created_at: new Date(),
         updated_at: new Date()
-    } as Task);
-}
+      })
+      .where(eq(tasksTable.id, input.id))
+      .returning()
+      .execute();
+
+    const updatedTask = updatedTasks[0];
+
+    // If task is completed and has recurrence, create next recurring task
+    if (input.status === 'completed' && 
+        existingTask.recurrence_type !== 'none' && 
+        existingTask.recurrence_interval) {
+      
+      // Calculate next due date based on recurrence type and interval
+      const nextDueDate = new Date(existingTask.due_date);
+      
+      switch (existingTask.recurrence_type) {
+        case 'daily':
+          nextDueDate.setDate(nextDueDate.getDate() + existingTask.recurrence_interval);
+          break;
+        case 'weekly':
+          nextDueDate.setDate(nextDueDate.getDate() + (existingTask.recurrence_interval * 7));
+          break;
+        case 'monthly':
+          nextDueDate.setMonth(nextDueDate.getMonth() + existingTask.recurrence_interval);
+          break;
+      }
+
+      // Create the next recurring task
+      await db.insert(tasksTable)
+        .values({
+          form_id: existingTask.form_id,
+          assigned_to: existingTask.assigned_to,
+          assigned_by: existingTask.assigned_by,
+          title: existingTask.title,
+          due_date: nextDueDate,
+          status: 'pending',
+          recurrence_type: existingTask.recurrence_type,
+          recurrence_interval: existingTask.recurrence_interval,
+          next_due_date: null
+        })
+        .execute();
+    }
+
+    return updatedTask;
+  } catch (error) {
+    console.error('Task status update failed:', error);
+    throw error;
+  }
+};

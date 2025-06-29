@@ -1,9 +1,25 @@
 
+import { db } from '../db';
+import { tasksTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
 import { type Task } from '../schema';
 
-export async function getTasksByUser(userId: number): Promise<Task[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all tasks assigned to a specific user.
-    // Should include form information and check for overdue tasks.
-    return [];
-}
+export const getTasksByUser = async (userId: number): Promise<Task[]> => {
+  try {
+    const results = await db.select()
+      .from(tasksTable)
+      .where(eq(tasksTable.assigned_to, userId))
+      .execute();
+
+    return results.map(task => ({
+      ...task,
+      due_date: task.due_date,
+      next_due_date: task.next_due_date,
+      created_at: task.created_at,
+      updated_at: task.updated_at
+    }));
+  } catch (error) {
+    console.error('Failed to get tasks by user:', error);
+    throw error;
+  }
+};

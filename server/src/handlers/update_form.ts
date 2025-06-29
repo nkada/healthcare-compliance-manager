@@ -1,19 +1,58 @@
 
+import { db } from '../db';
+import { formsTable } from '../db/schema';
 import { type UpdateFormInput, type Form } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export async function updateForm(input: UpdateFormInput): Promise<Form> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating form information in the database.
-    // Should validate form exists and update only provided fields.
-    // Should serialize tags array to JSON string if provided.
-    return Promise.resolve({
-        id: input.id,
-        title: input.title || 'Placeholder Form',
-        description: input.description,
-        tags: input.tags ? JSON.stringify(input.tags) : null,
-        is_active: input.is_active ?? true,
-        created_by: 1, // Placeholder user ID
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Form);
+  try {
+    // Check if form exists
+    const existingForm = await db.select()
+      .from(formsTable)
+      .where(eq(formsTable.id, input.id))
+      .execute();
+
+    if (existingForm.length === 0) {
+      throw new Error('Form not found');
+    }
+
+    // Build update object with only provided fields
+    const updateData: any = {
+      updated_at: new Date()
+    };
+
+    if (input.title !== undefined) {
+      updateData.title = input.title;
+    }
+
+    if (input.description !== undefined) {
+      updateData.description = input.description;
+    }
+
+    if (input.tags !== undefined) {
+      updateData.tags = (input.tags && input.tags.length > 0) ? JSON.stringify(input.tags) : null;
+    }
+
+    if (input.is_active !== undefined) {
+      updateData.is_active = input.is_active;
+    }
+
+    // Update the form
+    const result = await db.update(formsTable)
+      .set(updateData)
+      .where(eq(formsTable.id, input.id))
+      .returning()
+      .execute();
+
+    const updatedForm = result[0];
+
+    // Parse tags back to array for return type
+    return {
+      ...updatedForm,
+      tags: updatedForm.tags ? updatedForm.tags : null
+    };
+  } catch (error) {
+    console.error('Form update failed:', error);
+    throw error;
+  }
 }
