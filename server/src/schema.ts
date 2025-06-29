@@ -184,3 +184,24 @@ export const analyticsFilterSchema = z.object({
 });
 
 export type AnalyticsFilter = z.infer<typeof analyticsFilterSchema>;
+
+// Authentication schemas
+export const loginInputSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1)
+});
+
+export type LoginInput = z.infer<typeof loginInputSchema>;
+
+export const loginOutputSchema = z.object({
+  token: z.string(),
+  user: z.object({
+    id: z.number(),
+    email: z.string().email(),
+    first_name: z.string(),
+    last_name: z.string(),
+    role: userRoleEnum
+  })
+});
+
+export type LoginOutput = z.infer<typeof loginOutputSchema>;

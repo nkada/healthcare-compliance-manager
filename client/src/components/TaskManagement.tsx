@@ -128,11 +128,11 @@ export function TaskManagement({ tasks, users, forms, onRefresh }: TaskManagemen
               <div className="space-y-2">
                 <Label htmlFor="form_id">Form</Label>
                 <Select
-                  value={createFormData.form_id > 0 ? createFormData.form_id.toString() : 'select-form'}
+                  value={createFormData.form_id > 0 ? createFormData.form_id.toString() : ''}
                   onValueChange={(value: string) =>
                     setCreateFormData((prev: CreateTaskInput) => ({ 
                       ...prev, 
-                      form_id: value !== 'select-form' ? parseInt(value) : 0 
+                      form_id: value ? parseInt(value) : 0 
                     }))
                   }
                 >
@@ -140,7 +140,6 @@ export function TaskManagement({ tasks, users, forms, onRefresh }: TaskManagemen
                     <SelectValue placeholder="Select a form" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="select-form">Select a form</SelectItem>
                     {forms.filter((form: Form) => form.is_active).map((form: Form) => (
                       <SelectItem key={form.id} value={form.id.toString()}>
                         {form.title}
@@ -153,11 +152,11 @@ export function TaskManagement({ tasks, users, forms, onRefresh }: TaskManagemen
               <div className="space-y-2">
                 <Label htmlFor="assigned_to">Assign To</Label>
                 <Select
-                  value={createFormData.assigned_to > 0 ? createFormData.assigned_to.toString() : 'select-user'}
+                  value={createFormData.assigned_to > 0 ? createFormData.assigned_to.toString() : ''}
                   onValueChange={(value: string) =>
                     setCreateFormData((prev: CreateTaskInput) => ({ 
                       ...prev, 
-                      assigned_to: value !== 'select-user' ? parseInt(value) : 0 
+                      assigned_to: value ? parseInt(value) : 0 
                     }))
                   }
                 >
@@ -165,7 +164,6 @@ export function TaskManagement({ tasks, users, forms, onRefresh }: TaskManagemen
                     <SelectValue placeholder="Select a user" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="select-user">Select a user</SelectItem>
                     {users.filter((user: User) => user.is_active).map((user: User) => (
                       <SelectItem key={user.id} value={user.id.toString()}>
                         {user.first_name} {user.last_name} ({user.email})
