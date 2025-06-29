@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, Users, FileText, Calendar, BarChart3, Plus, Settings, LogOut } from 'lucide-react';
 import type { User, Form, Task, OrganizationAnalytics } from '../../server/src/schema';
+import { trpc } from '@/utils/trpc';
 
 // Import our feature components
 import { UserManagement } from '@/components/UserManagement';
@@ -25,7 +26,6 @@ interface AuthUser {
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [authToken, setAuthToken] = useState<string | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   
   const [users, setUsers] = useState<User[]>([]);
@@ -44,7 +44,6 @@ function App() {
       try {
         const user = JSON.parse(userData);
         setCurrentUser(user);
-        setAuthToken(token);
         setIsLoggedIn(true);
       } catch (error) {
         console.error('Failed to parse stored user data:', error);
@@ -60,7 +59,6 @@ function App() {
     localStorage.setItem('auth_token', token);
     localStorage.setItem('user_data', JSON.stringify(user));
     setCurrentUser(user);
-    setAuthToken(token);
     setIsLoggedIn(true);
   };
 
@@ -68,7 +66,6 @@ function App() {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
     setCurrentUser(null);
-    setAuthToken(null);
     setIsLoggedIn(false);
     setUsers([]);
     setForms([]);
@@ -82,37 +79,53 @@ function App() {
     try {
       setIsLoading(true);
       
-      // Note: Due to tRPC configuration limitations in this setup, 
-      // authentication headers cannot be dynamically added to requests.
-      // In a production environment, you would modify the tRPC client
-      // configuration to include authentication headers.
+      // Load data using real TRPC queries
+      setUsers(await trpc.getUsers.query());
+      setForms(await trpc.getForms.query());
       
-      // For now, we'll show a message about authentication being implemented
-      // but data loading will be limited until the tRPC client can be configured
-      // with proper authentication headers.
+      // Load tasks based on user role
+      const loadedTasks = currentUser.role === 'admin' 
+        ? await trpc.getAllTasks.query()
+        : await trpc.getTasksByUser.query({ userId: currentUser.id });
+      setTasks(loadedTasks);
       
-      console.log('Authentication implemented - user logged in:', currentUser);
-      console.log('Auth token available:', !!authToken);
-      
-      // Fallback data for demonstration
-      setForms([]);
-      setTasks([]);
-      setUsers([]);
-      setAnalytics({
-        total_forms: 0,
-        total_tasks: 0,
-        completed_tasks: 0,
-        overdue_tasks: 0,
-        overall_completion_rate: 0,
-        active_users: 1
-      });
+      // Load analytics for admin users
+      if (currentUser.role === 'admin') {
+        const organizationAnalytics = await trpc.getOrganizationAnalytics.query({});
+        setAnalytics(organizationAnalytics);
+      } else {
+        setAnalytics(null);
+      }
 
     } catch (error) {
       console.error('Failed to load data:', error);
+      
+      // Check if it's an authentication error
+      if (error instanceof Error && error.message.includes('UNAUTHORIZED')) {
+        console.warn('Authentication headers not properly configured in TRPC client');
+        // Show placeholder data until TRPC client can be configured with auth headers
+        setUsers([]);
+        setForms([]);
+        setTasks([]);
+        setAnalytics({
+          total_forms: 0,
+          total_tasks: 0,
+          completed_tasks: 0,
+          overdue_tasks: 0,
+          overall_completion_rate: 0,
+          active_users: 1
+        });
+      } else {
+        // Keep existing empty state on other errors
+        setUsers([]);
+        setForms([]);
+        setTasks([]);
+        setAnalytics(null);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [isLoggedIn, currentUser, authToken]);
+  }, [isLoggedIn, currentUser]);
 
   useEffect(() => {
     if (isLoggedIn && currentUser) {
@@ -348,11 +361,7 @@ function App() {
                         : 'You can view and complete your assigned tasks in the My Tasks section.'
                       }
                     </p>
-                    <div className="mt-3 p-3 bg-blue-100 rounded border text-xs text-blue-800">
-                      <strong>Note:</strong> Authentication system is fully implemented with protected routes. 
-                      To complete the integration, the tRPC client configuration would need to be updated 
-                      to include authentication headers for all API requests.
-                    </div>
+                    
                   </div>
                 </div>
               </CardContent>

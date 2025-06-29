@@ -297,7 +297,7 @@ export function TaskManagement({ tasks, users, forms, onRefresh }: TaskManagemen
           <CardTitle>Tasks</CardTitle>
           <CardDescription>
             {filteredTasks.length} of {tasks.length} tasks
-            {statusFilter !== 'all' && ` (filtered by ${statusOptions[statusFilter as keyof typeof statusOptions]?.label})`}
+            {statusFilter !== 'all' && statusFilter in statusOptions && ` (filtered by ${statusOptions[statusFilter as keyof typeof statusOptions].label})`}
           </CardDescription>
         </CardHeader>
         <CardContent>
